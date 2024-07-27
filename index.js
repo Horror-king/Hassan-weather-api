@@ -1,44 +1,39 @@
-const express = require("express");
-const axios = require("axios");
-const cors = require("cors");
+const express = require('express');
+const Groq = require('groq-sdk');
 
 const app = express();
-const port = process.env.PORT || 5000;
+const port = 3000;
+const groqApiKey = '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'; // Replace with your actual Groq API key
 
-const openWeatherApiKey = "ce5048473491559fe3db75ee1432b127"; // Replace with your OpenWeatherMap API key
+const groq = new Groq({ apiKey: groqApiKey });
 
-app.use(cors()); // Enable CORS
-
-app.get('/weather', async (req, res) => {
-  const cityName = req.query.city;
-  console.log(`Received request for city: ${cityName}`);
-
-  if (!cityName) {
-    console.log('City parameter is missing');
-    return res.status(400).json({ error: 'City parameter is required' });
-  }
-
-  try {
-    // Make a request to OpenWeatherMap API
-    const response = await axios.get(`https://api.openweathermap.org/data/2.5/weather?q=${cityName}&appid=${openWeatherApiKey}&units=metric`);
-    console.log('API response received:', response.data);
-    
-    // If the response code from OpenWeatherMap API is not 200 (OK)
-    if (response.data.cod !== 200) {
-      return res.status(404).json({ error: response.data.message });
+app.get('/llama3', async (req, res) => {
+    const prompt = req.query.prompt;
+    if (!prompt) {
+        return res.status(400).send('Prompt query parameter is required');
     }
 
-    // Return the API response as JSON
-    return res.json(response.data);
-  } catch (err) {
-    // Handle errors and return appropriate error message
-    const errorMessage = err.response?.data?.message || err.message || 'Unknown error';
-    console.log('Error occurred:', errorMessage);
-    return res.status(500).json({ error: `An error occurred: ${errorMessage}` });
-  }
+    try {
+        const chatCompletion = await getGroqChatCompletion(prompt);
+        res.json({ response: chatCompletion.choices[0]?.message?.content || '' });
+    } catch (error) {
+        console.error(error);
+        res.status(500).send('Error generating response from Groq API');
+    }
 });
 
-// Start the server
+async function getGroqChatCompletion(prompt) {
+    return groq.chat.completions.create({
+        messages: [
+            {
+                role: 'user',
+                content: prompt,
+            },
+        ],
+        model: 'llama3-8b-8192',
+    });
+}
+
 app.listen(port, () => {
-  console.log(`Server is running on port ${port}`);
+    console.log(`Server is running on http://localhost:${port}`);
 });
